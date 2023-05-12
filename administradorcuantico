@@ -1,0 +1,39 @@
+from qiskit import QuantumCircuit, execute, Aer
+from qiskit.providers.jobstatus import JOB_FINAL_STATES
+
+class QuantumAdministrator:
+    def __init__(self, n_qubits):
+        self.backend = Aer.get_backend('qasm_simulator')
+        self.jobs = {}
+        self.n_qubits = n_qubits
+        self.available_qubits = list(range(n_qubits))
+
+    def allocate_qubit(self):
+        if len(self.available_qubits) > 0:
+            qubit = self.available_qubits.pop(0)
+            return qubit
+        else:
+            raise Exception("No qubits available.")
+
+    def free_qubit(self, qubit):
+        self.available_qubits.append(qubit)
+
+    def add_job(self, circuit):
+        qubits_used = circuit.qubits
+        qubits_allocated = []
+        for qubit in qubits_used:
+            allocated_qubit = self.allocate_qubit()
+            qubits_allocated.append(allocated_qubit)
+            circuit = circuit.compose(QuantumCircuit(self.n_qubits).swap(qubit, allocated_qubit))
+        job = execute(circuit, self.backend)
+        self.jobs[job.job_id()] = (job, qubits_allocated)
+
+    def check_jobs(self):
+        for job_id, (job, qubits_allocated) in list(self.jobs.items()):
+            if job.status() in JOB_FINAL_STATES:
+                result = job.result()
+                counts = result.get_counts()
+                print(f"Job {job_id} finished with counts: {counts}")
+                for qubit in qubits_allocated:
+                    self.free_qubit(qubit)
+                del self.jobs[job_id]
