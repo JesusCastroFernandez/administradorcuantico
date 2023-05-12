@@ -1,0 +1,2 @@
+# administradorcuantico
+Administrador Cuántico
